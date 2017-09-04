@@ -73,7 +73,7 @@ int main(int argc, const char * argv[])
 
     GLK_H( glUseProgram(program) );
 
-    atlasses[0].bind(0);
+    //atlasses[0].bind(0);
 
     GLK_H( glUniform1i(glGetUniformLocation(program, "sampler0"), 0) );
 
@@ -103,7 +103,10 @@ int main(int argc, const char * argv[])
 								 1, GL_FALSE, glm::value_ptr(camera.view_to_clip())) );
 
         GLK_H( glClear(GL_COLOR_BUFFER_BIT) );
+
+        atlasses[atlas_view_index].bind(layer);
         GLK_H( glDrawArrays(GL_TRIANGLE_STRIP, 0, 4) );
+        atlasses[atlas_view_index].release();
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -115,7 +118,6 @@ int main(int argc, const char * argv[])
 		if (KEY_PRESS(GLFW_KEY_SPACE)) camera.raise(CAMERA_STEP);
 		if (KEY_PRESS(GLFW_KEY_LEFT_SHIFT)) camera.raise(-CAMERA_STEP);
 
-        atlasses[atlas_view_index].bind(layer);
 
         if (KEY_PRESS(GLFW_KEY_RIGHT)) {
             atlas_view_index ^= 0x1;
@@ -130,7 +132,7 @@ int main(int argc, const char * argv[])
             use_perspective = !use_perspective;
         }
 
-        glk_logf("origin: %s", glm::to_string(camera.view_origin()).c_str());
+   //     glk_logf("origin: %s", glm::to_string(camera.view_origin()).c_str());
 	}
 
     GLK_H( glUseProgram(0) );

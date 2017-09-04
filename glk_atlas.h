@@ -295,51 +295,90 @@ namespace glk {
 		{
             uint16_t old_width = dim_x(image);
             uint16_t old_height = dim_y(image);
-            uint16_t new_width = old_width >> 1;
+            uint16_t new_width = old_width >> 1 + (old_width & 0x1);
+            uint16_t new_height = old_height >> 1 + (old_height & 0x1);
 
             std::vector<uint8_t> old_pixels = buffer_table[image];
 
-   //         buffer_table[image].clear();
-   //         buffer_table[image].resize(old_width * old_height * GLK_ATLAS_DESIRED_BPP);
+            buffer_table[image].clear();
+            buffer_table[image].resize(old_width * old_height * GLK_ATLAS_DESIRED_BPP,
+                                       buffer_table[image][0]);
 
-            memset(&buffer_table[image][0], buffer_table[image][0], buffer_table[image].size());
+            uint8_t* buffer = &buffer_table[image][0];
 
-           // std::fill(buffer_table[image].begin(), buffer_table[image].end(), 0);
+            for (uint16_t v = 0; v < new_height; ++v) {
+                uint16_t oy = v << 1;
 
-            for (uint16_t y = 0; y < old_height; y += 2) {
-                for (uint16_t x = 0; x < old_width; x += 2) {
-                    const uint8_t* x1 = &old_pixels[((y + 0) * old_width + x + 0) * GLK_ATLAS_DESIRED_BPP];
-                    const uint8_t* x2 = &old_pixels[((y + 0) * old_width + x + 1) * GLK_ATLAS_DESIRED_BPP];
+                for (uint16_t u = 0; u < new_width; ++u) {
+                    uint16_t ox = u << 1;
 
-                    const uint8_t* y1 = &old_pixels[((y + 1) * old_width + x + 0) * GLK_ATLAS_DESIRED_BPP];
-                    const uint8_t* y2 = &old_pixels[((y + 1) * old_width + x + 1) * GLK_ATLAS_DESIRED_BPP];
+                    const uint8_t* x1 = &old_pixels[((oy + 0) * old_width + ox + 0) * GLK_ATLAS_DESIRED_BPP];
+                    const uint8_t* x2 = &old_pixels[((oy + 0) * old_width + ox + 1) * GLK_ATLAS_DESIRED_BPP];
 
-                    uint8_t* new_pixel = &buffer_table[image][
-                        ((y >> 1) * new_width + (x >> 1)) * GLK_ATLAS_DESIRED_BPP
-                    ];
+                    const uint8_t* y1 = &old_pixels[((oy + 1) * old_width + ox + 0) * GLK_ATLAS_DESIRED_BPP];
+                    const uint8_t* y2 = &old_pixels[((oy + 1) * old_width + ox + 1) * GLK_ATLAS_DESIRED_BPP];
 
-                    new_pixel[0] = /*x1[0]; //*/average_pix_channel4(0, x1, x2, y1, y2);
-                    new_pixel[1] = /*x1[1]; //*/average_pix_channel4(1, x1, x2, y1, y2);
-                    new_pixel[2] = /*x1[2]; //*/average_pix_channel4(2, x1, x2, y1, y2);
-                    new_pixel[3] = /*x1[3]; //*/average_pix_channel4(3, x1, x2, y1, y2);
+                    uint8_t* new_pixel = &buffer[(v * new_width + u) * GLK_ATLAS_DESIRED_BPP];
+
+                    new_pixel[0] = average_pix_channel4(0, x1, x2, y1, y2);
+                    new_pixel[1] = average_pix_channel4(1, x1, x2, y1, y2);
+                    new_pixel[2] = average_pix_channel4(2, x1, x2, y1, y2);
+                    new_pixel[3] = average_pix_channel4(3, x1, x2, y1, y2);
                 }
+
+                dims_x[image] = new_width;
+                dims_y[image] = new_height;
             }
 		}
 
+        void fill(size_t image, GLsizei offset_x, GLsizei offset_y, GLsizei dx, GLsizei dy) const
+        {
+            GLsizei dest_x = (GLsizei) origin_x(image) + offset_x;
+            GLsizei dest_y = (GLsizei) origin_y(image) + offset_y;
+
+            // NOTE: there is a problem due to how the array is being traversed.
+            // E.g., the buffer's stride isn't actually given, so the only "width"
+            // it can actually go off of is what's provided by dx. This is why starting
+            // after the image will still produce image texels on further iterations.
+
+            // Best bet is to instead copy.
+            std::vector<uint8_t> copy(dx * dy * GLK_ATLAS_DESIRED_BPP, 0);
+
+            for (GLsizei iy = 0; iy < dy; ++iy) {
+                for (GLsizei ix = 0; ix < dx; ++ix) {
+                    uint8_t* p_dest_copy = &copy[(iy * dx + ix) * GLK_ATLAS_DESIRED_BPP];
+                    const uint8_t* p_source = &buffer_table[image][((offset_y + iy) * dims_x[image] + ix + offset_x) * GLK_ATLAS_DESIRED_BPP];
+
+                    memcpy(&p_dest_copy[0], &p_source[0], sizeof(*p_dest_copy) * GLK_ATLAS_DESIRED_BPP);
+                }
+            }
+
+            GLK_H( glTexSubImage2D(GL_TEXTURE_2D,
+                                   0,
+                                   dest_x,
+                                   dest_y,
+                                   dx,
+                                   dy,
+                                   GLK_ATLAS_TEX_FORMAT,
+                                   GL_UNSIGNED_BYTE,
+                                   &copy[0]) );
+        }
+
 		void fill_atlas_image(size_t image)
 		{
-            if (downscaled())
+            if (downscaled()) {
                 downscale_image(image);
+            }
 
-            GLK_H( glTexSubImage2D(	GL_TEXTURE_2D,
-									0,
-									(GLsizei) origin_x(image),
-									(GLsizei) origin_y(image),
-									dims_x[image],
-									dims_y[image],
-                                    GLK_ATLAS_TEX_FORMAT,
-									GL_UNSIGNED_BYTE,
-									&buffer_table[image][0]	) );
+            GLsizei dx = (GLsizei) dims_x[image];
+            GLsizei dy = (GLsizei) dims_y[image];
+
+            fill(image, 0, 0, dx, dy);
+
+            if (downscaled()) {
+                fill(image, dx, 0, dx, dy * 2);
+              //  fill(image, 0, dy, dx * 2, dy);
+            }
 		}
 
 		uint16_t key_image(size_t key) const
@@ -631,7 +670,7 @@ namespace glk {
 									uint32_t clear_val)
 	{
 		std::vector<uint32_t> blank(width * height, clear_val);
-        GLK_H( glTexImage2D(	GL_TEXTURE_2D,
+        GLK_H( glTexImage2D(GL_TEXTURE_2D,
 							0,
                             GLK_ATLAS_INTERNAL_TEX_FORMAT,
 							(GLsizei) width,
@@ -826,8 +865,7 @@ namespace glk {
 			}
 
 			atlas.release();
-
-			layer++;
+            layer++;
 		}
 
         glk_logf("Total Images: %lu\nArea Accum: %lu",
@@ -867,7 +905,6 @@ namespace glk {
 		atlas.dims_x.push_back(dx);
 		atlas.dims_y.push_back(dy);
 
-		// stb_image treats the image origin as upper left and OpenGL doesn't.
 		if ( flip ) {
 			flip_rows_rgba(&image_data[0], dx, dy);
 		}
@@ -918,7 +955,7 @@ namespace glk {
 
 			atlas.filenames.push_back(std::string(ent->d_name));
 
-			push_atlas_image(atlas, stbi_buffer, dx, dy, bpp);
+            push_atlas_image(atlas, stbi_buffer, dx, dy, bpp, 0, true);
 
 			stbi_image_free(stbi_buffer);
 		}
