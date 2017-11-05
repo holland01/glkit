@@ -1,7 +1,7 @@
 #ifndef __GLK_INCLUDE_H__
 #define __GLK_INCLUDE_H__
 
-#include "glk_main_def.h"
+#include "main_def.h"
 
 #ifdef GLK_INCLUDE_GLEW
     #include <GL/glew.h>

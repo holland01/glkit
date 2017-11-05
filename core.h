@@ -1,15 +1,17 @@
 #ifndef __GLK_LOG_H__
 #define __GLK_LOG_H__
 
-#include "glk_include_gl.h"
+#include "include_gl.h"
 
 #include <vector>
 #include <string>
 #include <memory>
+#include <algorithm>
 
 #include <assert.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef GLK_IO
 #define glk_logf(...) glk::logf_impl(__LINE__, __FUNCTION__, __VA_ARGS__)
@@ -21,7 +23,7 @@
 #define GLK_H(expr) \
 do { \
     ( expr ); \
-    glk::exit_on_gl_error(__LINE__, __FUNCTION__, #expr); \
+    glk::report_gl_error(__LINE__, __FUNCTION__, #expr); \
 } while (0)
 #else
 #define GLK_H(expr) expr
@@ -38,21 +40,30 @@ public:
     void set_running(bool r) { is_running = r; }
 };
 
-static std::unique_ptr< state_t > g_state( new state_t() );
+static state_t *g_state = nullptr;
 
 static glk_inline void exit_on_error(void)
 {
 #ifdef GLK_MAIN_LOOP
-    g_state->set_running(false);
+    if (g_state) {
+        g_state->set_running(false);
+    } else {
+        exit(1);
+    }
 #else
     exit(1);
 #endif
 }
 
+static glk_inline void set_state(state_t *p_state)
+{
+    g_state = p_state;
+}
+
 // We want to prevent spamming to stdout
 static std::vector<std::string> g_gl_err_msg_cache;
 
-static glk_inline void exit_on_gl_error(int line, const char* func,
+static glk_inline void report_gl_error(int line, const char* func,
     const char* expr)
 {
     GLenum err = glGetError();
@@ -88,7 +99,9 @@ static glk_inline void exit_on_gl_error(int line, const char* func,
             g_gl_err_msg_cache.push_back(smsg);
         }
 
+#ifdef GLK_FORCE_EXIT_ON_GL_ERROR
         exit_on_error();
+#endif
     }
 }
 

@@ -1,10 +1,14 @@
 #ifndef __GLK_UTIL_H__
 #define __GLK_UTIL_H__
 
-#include "glk_include_gl.h"
-#include "glk_core.h"
+#include "include_gl.h"
+#include "core.h"
 
-#define GLK_UTIL_SHADER(s) "#version 410 core\n"#s
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#define GLK_UTIL_SHADER(s) "#version " GLK_GLSL_VERSION " core\n"#s
 
 namespace glk {
 
@@ -28,7 +32,7 @@ static const char* GLSL_VERTEX_SHADER = GLK_UTIL_SHADER(
                                                    vary_Color = color;
                                                    vary_St = st;
                                                }
-                                               );
+                                            );
 
 static const char* GLSL_FRAGMENT_SHADER = GLK_UTIL_SHADER(
                                                  in vec4 vary_Color;
@@ -40,7 +44,7 @@ static const char* GLSL_FRAGMENT_SHADER = GLK_UTIL_SHADER(
                                                  void main(void) {
                                                      out_Fragment = vary_Color * vec4(texture(sampler0, vary_St).rgb, 1.0);
                                                  }
-                                                 );
+                                            );
 
 class camera_t
 {
