@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #define GLK_UTIL_SHADER(s) "#version " GLK_GLSL_VERSION " core\n"#s
 
@@ -46,6 +47,40 @@ static const char* GLSL_FRAGMENT_SHADER = GLK_UTIL_SHADER(
                                                  }
                                             );
 
+class input_pole_t
+{
+    enum {
+        state_left = 0,
+        state_forward,
+        state_right,
+        state_backward,
+        state_up,
+        state_down
+    };
+
+    std::array<bool, 6> input_state;
+
+public:
+    input_pole_t(void)
+    {
+        input_state.fill(false);
+    }
+
+    void set_moving_left(bool t) { input_state[state_left] = t; }
+    void set_moving_forward(bool t) { input_state[state_forward] = t; }
+    void set_moving_right(bool t) { input_state[state_right] = t; }
+    void set_moving_backward(bool t) { input_state[state_backward] = t; }
+    void set_moving_up(bool t) { input_state[state_up] = t; }
+    void set_moving_down(bool t) { input_state[state_down] = t; }
+
+    bool moving_left(void) const { return input_state[state_left]; }
+    bool moving_forward(void) const { return input_state[state_forward]; }
+    bool moving_right(void) const { return input_state[state_right]; }
+    bool moving_backward(void) const { return input_state[state_backward]; }
+    bool moving_up(void) const { return input_state[state_up]; }
+    bool moving_down(void) const { return input_state[state_down]; }
+};
+
 class camera_t
 {
     bool is_ortho;
@@ -53,7 +88,7 @@ class camera_t
     uint16_t screen_width, screen_height;
 
     glm::vec3 origin;
-    glm::vec3 scale;
+    glm::vec3 translate_scale;
     glm::mat4 view;
     glm::mat4 projection;
 
@@ -61,7 +96,7 @@ public:
     camera_t(uint16_t screen_w, uint16_t screen_h)
         :   is_ortho(false),
             screen_width(screen_w), screen_height(screen_h),
-            origin(0.0f), scale(1.0f),
+            origin(0.0f), translate_scale(1.0f),
             view(1.0f), projection(1.0f)
 
     {}
@@ -69,18 +104,23 @@ public:
     void perspective(float fovy, float znear, float zfar)
     {
         projection = glm::perspective(glm::radians(fovy),
-                                      ((float) screen_width) / ((float) screen_height),
+                                      static_cast<float>(screen_width) / static_cast<float>(screen_height),
                                       znear, zfar);
 
-         is_ortho = false;
+        is_ortho = false;
     }
 
     void ortho(float znear, float zfar)
     {
-        float fw = (float)screen_width * 0.5f;
-        float fh = (float)screen_height * 0.5f;
+        float fw = static_cast<float>(screen_width) * 0.5f;
+        float fh = static_cast<float>(screen_height) * 0.5f;
 
-        projection = glm::ortho(-fw, fw, -fh, fh, znear, zfar);
+        ortho(-fw, fw, -fh, fh, znear, zfar);
+    }
+
+    void ortho(float left, float right, float bottom, float top, float znear, float zfar)
+    {
+        projection = glm::ortho(left, right, bottom, top, znear, zfar);
 
         is_ortho = true;
     }
@@ -100,9 +140,24 @@ public:
         origin.z -= t; // negative z is the forward axis
     }
 
-    void set_scale(float s)
+    void set_translate_scale(float s)
     {
-        scale = glm::vec3(s, s, s);
+        translate_scale = glm::vec3(s, s, s);
+    }
+
+    void set_origin(const glm::vec3& v)
+    {
+        origin = v;
+    }
+
+    void update_from_input(const input_pole_t& pole)
+    {
+        if (pole.moving_forward()) walk(translate_scale.z);
+        if (pole.moving_backward()) walk(-translate_scale.z);
+        if (pole.moving_up()) raise(translate_scale.y);
+        if (pole.moving_down()) raise(-translate_scale.y);
+        if (pole.moving_right()) strafe(translate_scale.x);
+        if (pole.moving_left()) strafe(-translate_scale.x);
     }
 
     glm::mat4 model_to_view(void)
@@ -111,9 +166,9 @@ public:
      //   view[1] = glm::vec4(0.0f, scale.y, 0.0f, 0.0f);
      //   view[2] = glm::vec4(0.0f, 0.0f, scale.z, 0.0f);
 
-        glm::vec3 o(origin.x * scale.x, origin.y * scale.y, origin.z * scale.z);
+        glm::vec3 o(origin.x, origin.y, origin.z);
 
-        view[3] = glm::vec4(is_ortho? (-o): (-o), 1.0f); // flip for view space translation
+        view[3] = glm::vec4(/*is_ortho? (*/-o/*): (-o)*/, 1.0f); // flip for view space translation
 
         return view;
     }
@@ -125,6 +180,11 @@ public:
     uint16_t view_height(void) const { return screen_height; }
 
     const glm::vec3& view_origin(void) const { return origin; }
+
+    void log_model_to_view(void) const
+    {
+        glk_logf("model_to_view:\n%s", glm::to_string(view).c_str());
+    }
 };
 
 struct vertex_t {
