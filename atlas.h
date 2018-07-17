@@ -53,14 +53,14 @@
 #include "stb_image.h"
 
 
-#include "glk_include_gl.h"
+#include "include_gl.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "glk_core.h"
+#include "core.h"
 
 //------------------------------------------------------------------------------------
 // logging and GL error handling
@@ -301,8 +301,7 @@ namespace glk {
             std::vector<uint8_t> old_pixels = buffer_table[image];
 
             buffer_table[image].clear();
-            buffer_table[image].resize(old_width * old_height * GLK_ATLAS_DESIRED_BPP,
-                                       buffer_table[image][0]);
+            buffer_table[image].resize(old_width * old_height * GLK_ATLAS_DESIRED_BPP, 0);
 
             uint8_t* buffer = &buffer_table[image][0];
 
@@ -411,8 +410,11 @@ namespace glk {
                     GLK_H( glBindTexture(GL_TEXTURE_2D, 0) );
 				}
 
-                GLK_H( glDeleteTextures(layer_tex_handles.size(),
-					&layer_tex_handles[0]) );
+				if (!layer_tex_handles.empty())
+				{
+					GLK_H( glDeleteTextures(layer_tex_handles.size(),
+						&layer_tex_handles[0]) );
+				}
 			}
 
 			num_images = 0;
@@ -917,8 +919,8 @@ namespace glk {
 		atlas_t& atlas,
 		std::string dirpath)
 	{
-		if (*(dirpath.end()) != '/')
-			dirpath.append(1, '/');
+		if (dirpath[dirpath.size() - 1] != GLK_PATH_SEP)
+			dirpath.append(1, GLK_PATH_SEP);
 
 		DIR* dir = opendir(dirpath.c_str());
 		struct dirent* ent = NULL;

@@ -1,5 +1,5 @@
-#include "glk_atlas.h"
-#include "glk_util.h"
+#include "atlas.h"
+#include "util.h"
 
 #include <glm/gtx/string_cast.hpp>
 
@@ -10,9 +10,8 @@ int main(int argc, const char * argv[])
 	glfwInit();
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 	glfwWindowHint(GLFW_STICKY_KEYS, GLFW_TRUE);
 
@@ -34,10 +33,10 @@ int main(int argc, const char * argv[])
 	size_t atlas_view_index = 0;
     std::array<glk::atlas_t, 2> atlasses;
 
-    glk::make_atlas_from_dir(atlasses[0], "./textures/base_wall");
+	std::string texpath("." GLK_PATH_SEP_STR "textures" GLK_PATH_SEP_STR "base_wall");
 
-    atlasses[1].set_downscaled(true);
-    glk::make_atlas_from_dir(atlasses[1], "./textures/base_wall");
+    glk::make_atlas_from_dir(atlasses[0], texpath);
+    glk::make_atlas_from_dir(atlasses[1], texpath);
 
     GLuint program = glk::link_program(glk::GLSL_VERTEX_SHADER, glk::GLSL_FRAGMENT_SHADER);
 
@@ -84,16 +83,17 @@ int main(int argc, const char * argv[])
 
     uint32_t layer = 0;
 
+	glk::state_t the_state;
+	glk::set_state(&the_state);
+
 	while (!KEY_PRESS(GLFW_KEY_ESCAPE)
 		   && !glfwWindowShouldClose(window)
            && glk::g_state->running()) {
 
         if (use_perspective) {
             camera.perspective(40.0f, 0.01f, 10.0f);
-            camera.set_scale(1.0f);
         } else {
             camera.ortho(0.01f, 10.0f);
-            camera.set_scale(220.0f);
         }
 
         GLK_H( glUniformMatrix4fv(glGetUniformLocation(program, "modelView"),
@@ -149,6 +149,8 @@ int main(int argc, const char * argv[])
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
+
+	system("pause");
 
 	return 0;
 }

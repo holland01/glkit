@@ -44,6 +44,10 @@ static state_t *g_state = nullptr;
 
 static glk_inline void exit_on_error(void)
 {
+#ifdef _WIN32
+	system("pause");
+#endif
+
 #ifdef GLK_MAIN_LOOP
     if (g_state) {
         g_state->set_running(false);
@@ -58,6 +62,15 @@ static glk_inline void exit_on_error(void)
 static glk_inline void set_state(state_t *p_state)
 {
     g_state = p_state;
+}
+
+static glk_inline std::string join_path(const std::string& lhs, const std::string &rhs)
+{
+	std::string ret(lhs);
+	ret.append(1, GLK_PATH_SEP);
+	ret.append(rhs);
+
+	return ret;
 }
 
 // We want to prevent spamming to stdout
